@@ -38,7 +38,7 @@ class WavInstrumentApp(QMainWindow):
             'sawtooth': lambda t, freq: signal.sawtooth(2 * np.pi * freq * t),
             'triangle': lambda t, freq: signal.sawtooth(2 * np.pi * freq * t, 0.5),
             'noise': lambda t, freq: np.random.normal(0, 1, len(t)),
-            'custom': self.custom_wave
+            'custom': self.custom_wave  # Nowa, uproszczona wersja
         }
         
         self.params = {
@@ -48,8 +48,7 @@ class WavInstrumentApp(QMainWindow):
             'attack_time': 0.1, 'decay_time': 0.2, 'sustain_level': 0.7, 'release_time': 0.3,
             'vibrato_rate': 0.0, 'vibrato_depth': 0.0, 'tremolo_rate': 0.0, 'tremolo_depth': 0.0,
             'distortion': 0.0, 'noise_level': 0.0, 'bit_crush': 0.0, 'fold_amount': 0.0,
-            'filter_cutoff': 20000, 'filter_resonance': 0.0, 'chorus_depth': 0.0, 'chorus_rate': 0.0,
-            'custom_param1': 0.5, 'custom_param2': 0.5, 'custom_param3': 0.5
+            'filter_cutoff': 20000, 'filter_resonance': 0.0, 'chorus_depth': 0.0, 'chorus_rate': 0.0
         }
         
         self.presets = {}
@@ -60,7 +59,7 @@ class WavInstrumentApp(QMainWindow):
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_play_position)
         self.updating_waveform = False
-        self.background_timer = QTimer()  # Timer do operacji w tle
+        self.background_timer = QTimer()
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -249,8 +248,7 @@ class WavInstrumentApp(QMainWindow):
             'Effects': ['vibrato_rate', 'vibrato_depth', 'tremolo_rate', 'tremolo_depth', 
                         'distortion', 'noise_level', 'bit_crush', 'fold_amount'],
             'Filter': ['filter_cutoff', 'filter_resonance'],
-            'Chorus': ['chorus_depth', 'chorus_rate'],
-            'Custom': ['custom_param1', 'custom_param2', 'custom_param3']
+            'Chorus': ['chorus_depth', 'chorus_rate']
         }
 
         for group_name, params in param_groups.items():
@@ -260,9 +258,9 @@ class WavInstrumentApp(QMainWindow):
                 slider_layout = QHBoxLayout()
                 label = QLabel(param)
                 slider = QSlider(Qt.Orientation.Horizontal)
-                slider.setRange(0, 100 if any(x in param for x in ['weight', 'level', 'depth', 'mix', 'amount', 'param']) else 
+                slider.setRange(0, 100 if any(x in param for x in ['weight', 'level', 'depth', 'mix', 'amount']) else 
                                 200 if 'time' in param else 2000 if 'freq' in param or 'rate' in param else 100)
-                slider.setValue(int(self.params[param] * (100 if any(x in param for x in ['weight', 'level', 'depth', 'mix', 'amount', 'param']) else 
+                slider.setValue(int(self.params[param] * (100 if any(x in param for x in ['weight', 'level', 'depth', 'mix', 'amount']) else 
                                                         100 if 'time' in param else 1)))
                 slider.valueChanged.connect(lambda val, p=param: self.update_param(p, val))
                 slider_layout.addWidget(label)
@@ -382,18 +380,15 @@ class WavInstrumentApp(QMainWindow):
         if name in self.presets:
             self.params = self.presets[name].copy()
             self.current_preset_name = name
-            # Ustawienie domyślnych wartości dla brakujących kluczy
             self.params.setdefault('wave_shape1', 'sine')
             self.params.setdefault('wave_shape2', 'sine')
             self.params.setdefault('frequency', 440.0)
             self.debug_label.setText(f"Loaded preset: {name}")
-            # Uruchomienie generowania WAV i przetwarzania w tle
             self.background_timer.singleShot(100, self.background_process_preset)
 
     def background_process_preset(self):
-        """Generuje WAV i przetwarza preset w tle"""
-        self.process_preset()  # Przetwarzanie dźwięków
-        self.save_preset_to_wav()  # Zapis do WAV
+        self.process_preset()
+        self.save_preset_to_wav()
 
     def process_preset(self):
         if not self.current_preset_name or self.current_preset_name not in self.presets:
@@ -588,13 +583,8 @@ class WavInstrumentApp(QMainWindow):
 
     # Wave Generator Methods
     def custom_wave(self, t, freq):
-        p1 = self.params['custom_param1']
-        p2 = self.params['custom_param2']
-        p3 = self.params['custom_param3']
-        wave = (np.sin(2 * np.pi * freq * t) * p1 +
-                signal.sawtooth(2 * np.pi * freq * t * 2) * p2 +
-                np.sin(2 * np.pi * freq * t * 3) * p3)
-        return wave / np.max(np.abs(wave))
+        # Uproszczona wersja bez custom_paramX: mieszanka sinusoidy i szumu
+        return 0.7 * np.sin(2 * np.pi * freq * t) + 0.3 * np.random.normal(0, 1, len(t))
 
     def generate_wave(self):
         freq = self.params.get('frequency', 440.0)
@@ -669,7 +659,7 @@ class WavInstrumentApp(QMainWindow):
         return envelope
 
     def update_param(self, param, value):
-        scale = 1.0 if 'freq' in param or 'rate' in param else 0.01 if any(x in param for x in ['time', 'depth', 'level', 'mix', 'amount', 'param']) else 1.0
+        scale = 1.0 if 'freq' in param or 'rate' in param else 0.01 if any(x in param for x in ['time', 'depth', 'level', 'mix', 'amount']) else 1.0
         self.params[param] = value * scale
         self.update_waveform()
 
@@ -686,11 +676,11 @@ class WavInstrumentApp(QMainWindow):
             if param in ['wave_shape1', 'wave_shape2']:
                 self.params[param] = random.choice(list(self.wave_shapes.keys()))
             else:
-                max_val = 1.0 if any(x in param for x in ['weight', 'level', 'depth', 'mix', 'amount', 'param']) else \
+                max_val = 1.0 if any(x in param for x in ['weight', 'level', 'depth', 'mix', 'amount']) else \
                           2.0 if 'time' in param else 2000 if 'freq' in param or 'rate' in param else 1.0
                 self.params[param] = random.uniform(0, max_val)
                 if param in self.sliders:
-                    scale = 100 if any(x in param for x in ['weight', 'level', 'depth', 'mix', 'amount', 'param']) else \
+                    scale = 100 if any(x in param for x in ['weight', 'level', 'depth', 'mix', 'amount']) else \
                             100 if 'time' in param else 1
                     self.sliders[param].setValue(int(self.params[param] * scale))
         self.update_waveform()
@@ -720,12 +710,12 @@ class WavInstrumentApp(QMainWindow):
             self.updating_waveform = True
             self.params = self.presets[name].copy()
             self.current_preset_name = name
-            self.params.setdefault('wave_shape1', 'sine')  # Domyślne wartości
+            self.params.setdefault('wave_shape1', 'sine')
             self.params.setdefault('wave_shape2', 'sine')
             self.params.setdefault('frequency', 440.0)
             for param, value in self.params.items():
                 if param in self.sliders:
-                    scale = 100 if any(x in param for x in ['weight', 'level', 'depth', 'mix', 'amount', 'param']) else \
+                    scale = 100 if any(x in param for x in ['weight', 'level', 'depth', 'mix', 'amount']) else \
                             100 if 'time' in param else 1
                     self.sliders[param].setValue(int(value * scale))
             self.update_waveform()
